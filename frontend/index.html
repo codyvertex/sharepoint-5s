@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5S — SharePoint Cleanup</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <header class="header">
+      <div class="header__logo">
+        <span>5</span>S
+      </div>
+      <div class="header__center" id="headerCenter"></div>
+      <div class="header__right" id="headerRight">
+        <!-- Populated by JS -->
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <section class="landing" id="landing">
+        <!-- Hero -->
+        <div class="landing__hero">
+          <h1 class="landing__title animate-hero-reveal">
+            <span>5</span>S
+            <em>SharePoint Cleanup</em>
+          </h1>
+          <p class="landing__subtitle animate-fade-in-up stagger-2">
+            Paste your SharePoint URL below. We'll analyze every file and folder, then show you exactly what to clean up, archive, rename, and restructure.
+          </p>
+        </div>
+
+        <!-- URL Input -->
+        <div class="input-group animate-fade-in-up stagger-4" id="urlInputGroup">
+          <input
+            type="url"
+            class="input"
+            id="sharepointUrl"
+            placeholder="https://tenant.sharepoint.com/sites/YourSite"
+            autocomplete="url"
+            spellcheck="false"
+            aria-label="SharePoint URL"
+          >
+          <button class="btn btn--go" id="goBtn" disabled>
+            GO
+          </button>
+        </div>
+        <p class="input__hint animate-fade-in stagger-6" id="inputHint">
+          Paste any SharePoint site or document library URL
+        </p>
+        <p class="input__error" id="inputError" style="display: none;"></p>
+
+        <!-- Recent Scans -->
+        <div id="recentScans" class="animate-fade-in-up stagger-8" style="margin-top: var(--space-12); width: 100%; max-width: 640px; display: none;">
+          <h3 style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-lg); letter-spacing: var(--tracking-wider); text-transform: uppercase; color: var(--text-secondary); margin-bottom: var(--space-4);">
+            Recent Scans
+          </h3>
+          <div id="recentScansList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script type="module">
+    import { initAuth, signIn, signOut, isSignedIn, getUserDisplay, onAuthChange } from './js/auth.js';
+    import { startCrawl, getRecentScans } from './js/api.js';
+    import { showToast } from './js/ui/toast.js';
+
+    const urlInput = document.getElementById('sharepointUrl');
+    const goBtn = document.getElementById('goBtn');
+    const inputError = document.getElementById('inputError');
+    const inputHint = document.getElementById('inputHint');
+    const headerRight = document.getElementById('headerRight');
+    const recentScansSection = document.getElementById('recentScans');
+    const recentScansList = document.getElementById('recentScansList');
+
+    // SharePoint URL validation
+    const SP_REGEX = /^https:\/\/[\w-]+\.sharepoint\.com\/(sites|teams)\/[\w%-]+/i;
+
+    function validateUrl(url) {
+      if (!url) return { valid: false, message: '' };
+      if (!url.startsWith('https://')) return { valid: false, message: 'URL must start with https://' };
+      if (!SP_REGEX.test(url)) return { valid: false, message: 'Not a valid SharePoint site URL' };
+      return { valid: true, message: '' };
+    }
+
+    urlInput.addEventListener('input', () => {
+      const { valid, message } = validateUrl(urlInput.value.trim());
+      goBtn.disabled = !valid;
+
+      if (urlInput.value && !valid && message) {
+        inputError.textContent = message;
+        inputError.style.display = 'block';
+        inputHint.style.display = 'none';
+        urlInput.classList.add('input--error');
+      } else {
+        inputError.style.display = 'none';
+        inputHint.style.display = 'block';
+        urlInput.classList.remove('input--error');
+      }
+    });
+
+    goBtn.addEventListener('click', handleGo);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !goBtn.disabled) handleGo();
+    });
+
+    async function handleGo() {
+      const url = urlInput.value.trim();
+      if (!validateUrl(url).valid) return;
+
+      if (!isSignedIn()) {
+        // Save URL and redirect to sign in
+        sessionStorage.setItem('pending_sharepoint_url', url);
+        await signIn('/callback.html');
+        return;
+      }
+
+      // Signed in — start crawl
+      goBtn.disabled = true;
+      goBtn.textContent = '...';
+
+      try {
+        const { scan_id } = await startCrawl(url);
+        window.location.href = `dashboard.html?scan_id=${scan_id}`;
+      } catch (err) {
+        showToast(err.message, 'error');
+        goBtn.disabled = false;
+        goBtn.textContent = 'GO';
+      }
+    }
+
+    function renderHeaderAuth(user) {
+      if (user) {
+        const display = getUserDisplay();
+        headerRight.innerHTML = `
+          <div class="header__user">
+            <span style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--accent-archive);color:var(--bg-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:var(--weight-bold);font-size:var(--text-xs);">${display.initials}</span>
+            <span>${display.name}</span>
+          </div>
+          <button class="btn btn--ghost btn--sm" id="signOutBtn">Sign Out</button>
+        `;
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
+          await signOut();
+          showToast('Signed out', 'info');
+        });
+      } else {
+        headerRight.innerHTML = `
+          <button class="btn btn--ghost btn--sm" id="signInBtn">Sign In</button>
+        `;
+        document.getElementById('signInBtn').addEventListener('click', () => signIn('/callback.html'));
+      }
+    }
+
+    async function loadRecentScans() {
+      if (!isSignedIn()) {
+        recentScansSection.style.display = 'none';
+        return;
+      }
+
+      try {
+        const scans = await getRecentScans(5);
+        if (scans.length === 0) {
+          recentScansSection.style.display = 'none';
+          return;
+        }
+
+        recentScansSection.style.display = 'block';
+        recentScansList.innerHTML = scans.map(scan => `
+          <a href="dashboard.html?scan_id=${scan.id}" class="card" style="display:block;margin-bottom:var(--space-2);text-decoration:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">
+                ${escapeHtml(scan.sharepoint_url)}
+              </span>
+              <span class="badge">${scan.status}</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-tertiary);margin-top:var(--space-1);">
+              ${scan.total_files} files &middot; ${formatBytes(scan.total_size_bytes)} &middot; ${formatDate(scan.created_at)}
+            </div>
+          </a>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load recent scans:', err);
+      }
+    }
+
+    // Init
+    onAuthChange((user) => {
+      renderHeaderAuth(user);
+      loadRecentScans();
+    });
+
+    initAuth().then(() => {
+      // Check for pending URL from callback
+      const pendingUrl = sessionStorage.getItem('pending_sharepoint_url');
+      if (pendingUrl && isSignedIn()) {
+        urlInput.value = pendingUrl;
+        sessionStorage.removeItem('pending_sharepoint_url');
+        urlInput.dispatchEvent(new Event('input'));
+      }
+    });
+
+    // Helpers
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  </script>
+</body>
+</html>

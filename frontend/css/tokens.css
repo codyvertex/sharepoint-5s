@@ -1,0 +1,139 @@
+/* ═══════════════════════════════════════════════════════
+   5S DESIGN TOKENS — Industrial/Utilitarian System
+   ═══════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── Typography ── */
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --font-body: 'Barlow Condensed', sans-serif;
+
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.8125rem;   /* 13px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.5rem;      /* 24px */
+  --text-2xl: 2rem;       /* 32px */
+  --text-3xl: 2.75rem;    /* 44px */
+  --text-4xl: 4rem;       /* 64px */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  --leading-tight: 1.1;
+  --leading-normal: 1.5;
+  --leading-loose: 1.75;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.12em;
+
+  /* ── Colors — Factory Floor ── */
+  --bg-primary: #111113;
+  --bg-surface: #1a1a1e;
+  --bg-elevated: #222228;
+  --bg-hover: #2a2a32;
+  --bg-input: #16161a;
+
+  --border-subtle: #2a2a32;
+  --border-default: #3a3a44;
+  --border-strong: #4a4a56;
+
+  --text-primary: #e8e4dd;
+  --text-secondary: #9d9a93;
+  --text-tertiary: #6b6860;
+  --text-inverse: #111113;
+
+  /* ── Category Colors ── */
+  --accent-delete: #e63946;
+  --accent-delete-dim: #e6394620;
+  --accent-delete-glow: #e6394640;
+
+  --accent-archive: #e9a820;
+  --accent-archive-dim: #e9a82020;
+  --accent-archive-glow: #e9a82040;
+
+  --accent-rename: #457b9d;
+  --accent-rename-dim: #457b9d20;
+  --accent-rename-glow: #457b9d40;
+
+  --accent-structure: #8b7ec8;
+  --accent-structure-dim: #8b7ec820;
+  --accent-structure-glow: #8b7ec840;
+
+  /* ── Action Colors ── */
+  --accent-approve: #2a9d8f;
+  --accent-approve-dim: #2a9d8f20;
+  --accent-reject: #e63946;
+  --accent-reject-dim: #e6394620;
+
+  /* ── Utility ── */
+  --white: #ffffff;
+  --black: #000000;
+
+  /* ── Spacing ── */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+  /* ── Radii ── */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow-delete: 0 0 20px var(--accent-delete-glow);
+  --shadow-glow-archive: 0 0 20px var(--accent-archive-glow);
+  --shadow-glow-rename: 0 0 20px var(--accent-rename-glow);
+  --shadow-glow-structure: 0 0 20px var(--accent-structure-glow);
+
+  /* ── Transitions ── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+
+  /* ── Z-Index ── */
+  --z-base: 0;
+  --z-above: 10;
+  --z-sticky: 100;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
+  /* ── Hazard Stripe (decorative) ── */
+  --hazard-stripe: repeating-linear-gradient(
+    -45deg,
+    var(--accent-archive) 0px,
+    var(--accent-archive) 8px,
+    var(--bg-primary) 8px,
+    var(--bg-primary) 16px
+  );
+
+  --hazard-stripe-subtle: repeating-linear-gradient(
+    -45deg,
+    var(--border-subtle) 0px,
+    var(--border-subtle) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}

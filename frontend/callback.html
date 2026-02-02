@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5S — Authenticating...</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .callback-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      gap: var(--space-4);
+    }
+    .callback-status__spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-default);
+      border-top-color: var(--accent-approve);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .callback-status__text {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .callback-status__error {
+      color: var(--accent-delete);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div class="callback-status" id="status">
+    <div class="callback-status__spinner" id="spinner"></div>
+    <p class="callback-status__text" id="message">Completing sign-in...</p>
+  </div>
+
+  <script type="module">
+    import { supabase, EDGE_FUNCTION_BASE } from './js/lib/supabase-client.js';
+
+    async function handleCallback() {
+      const messageEl = document.getElementById('message');
+      const spinnerEl = document.getElementById('spinner');
+
+      try {
+        // Supabase will handle the OAuth code exchange automatically
+        // because we have detectSessionInUrl: true
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        if (!session) {
+          throw new Error('No session found after authentication.');
+        }
+
+        messageEl.textContent = 'Securing tokens...';
+
+        // Store provider tokens server-side
+        if (session.provider_token) {
+          const response = await fetch(`${EDGE_FUNCTION_BASE}/store-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              provider_token: session.provider_token,
+              provider_refresh_token: session.provider_refresh_token,
+              expires_in: 3600,
+            }),
+          });
+
+          if (!response.ok) {
+            console.warn('Token storage failed, continuing anyway');
+          }
+        }
+
+        messageEl.textContent = 'Redirecting...';
+
+        // Check if there's a pending SharePoint URL
+        const pendingUrl = sessionStorage.getItem('pending_sharepoint_url');
+        if (pendingUrl) {
+          sessionStorage.removeItem('pending_sharepoint_url');
+          // Redirect to dashboard with the URL to start scanning
+          window.location.href = `dashboard.html?url=${encodeURIComponent(pendingUrl)}`;
+        } else {
+          window.location.href = 'index.html';
+        }
+
+      } catch (err) {
+        console.error('Callback error:', err);
+        spinnerEl.style.display = 'none';
+        messageEl.textContent = '';
+
+        const errorEl = document.createElement('p');
+        errorEl.className = 'callback-status__error';
+        errorEl.textContent = `Authentication failed: ${err.message}`;
+        document.getElementById('status').appendChild(errorEl);
+
+        const retryLink = document.createElement('a');
+        retryLink.href = 'index.html';
+        retryLink.textContent = 'Return to home';
+        retryLink.style.color = 'var(--accent-rename)';
+        retryLink.style.marginTop = 'var(--space-4)';
+        retryLink.style.fontFamily = 'var(--font-mono)';
+        retryLink.style.fontSize = 'var(--text-sm)';
+        document.getElementById('status').appendChild(retryLink);
+      }
+    }
+
+    handleCallback();
+  </script>
+</body>
+</html>

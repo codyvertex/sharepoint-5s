@@ -1,0 +1,202 @@
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS — Keyframes, transitions, micro-interactions
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Barber Pole / Hazard Stripe ── */
+@keyframes barberpole {
+  from { background-position: 0 0; }
+  to { background-position: 32px 0; }
+}
+
+/* ── Shimmer (skeleton loading) ── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Fade In Up ── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Fade In ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Slide In Right ── */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Scale In ── */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Count Up (for stat numbers) ── */
+@keyframes countPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* ── Card Approve Animation ── */
+@keyframes approveSlide {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(8px);
+    opacity: 0.8;
+    box-shadow: 0 0 20px var(--accent-approve-dim);
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0.5;
+  }
+}
+
+/* ── Card Reject Animation ── */
+@keyframes rejectFade {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+    filter: grayscale(0);
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0.3;
+    filter: grayscale(0.8);
+  }
+}
+
+/* ── Pulse ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Spin ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Stagger classes (applied via JS) ── */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.30s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.40s; }
+.stagger-9 { animation-delay: 0.45s; }
+.stagger-10 { animation-delay: 0.50s; }
+
+/* ── Animation utility classes ── */
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-out) both;
+}
+
+.animate-slide-in {
+  animation: slideInRight var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-spring) both;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-approve {
+  animation: approveSlide var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-reject {
+  animation: rejectFade var(--duration-slow) var(--ease-out) both;
+}
+
+/* ── Hero text reveal ── */
+@keyframes heroReveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+.animate-hero-reveal {
+  animation: heroReveal 0.8s var(--ease-out) both;
+}
+
+/* ── Scanning line effect ── */
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scan-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-approve), transparent);
+  z-index: var(--z-above);
+  pointer-events: none;
+  animation: scanLine 3s var(--ease-in-out) infinite;
+  opacity: 0.4;
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .scan-line {
+    display: none;
+  }
+}

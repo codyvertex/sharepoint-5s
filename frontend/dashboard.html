@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5S — Dashboard</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <header class="header">
+      <a href="index.html" class="header__logo" style="text-decoration:none;">
+        <span>5</span>S
+      </a>
+      <div class="header__center" id="headerCenter"></div>
+      <div class="header__right" id="headerRight"></div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="dashboard" id="dashboard">
+
+        <!-- Progress Section (shown during crawl/analysis) -->
+        <section id="progressSection" style="display:none;">
+          <div id="progressContainer"></div>
+        </section>
+
+        <!-- Stats Section -->
+        <section id="statsSection" style="display:none;">
+          <div id="statsContainer"></div>
+        </section>
+
+        <!-- Divider -->
+        <hr class="divider" id="divider" style="display:none;">
+
+        <!-- Tabs -->
+        <section id="tabsSection" style="display:none;">
+          <div id="tabsContainer"></div>
+        </section>
+
+        <!-- Suggestion List -->
+        <section id="listSection" style="display:none;">
+          <div id="listContainer" role="tabpanel" id="suggestion-list"></div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Action Bar (fixed bottom) -->
+  <div id="actionBar"></div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scan line effect during crawl -->
+  <div class="scan-line" id="scanLine" style="display:none;"></div>
+
+  <script type="module">
+    import { initAuth, signOut, isSignedIn, getUserDisplay, onAuthChange } from './js/auth.js';
+    import { startCrawl, startAnalysis, getSuggestions, getFileStats, getScan, updateSuggestionDecision, executeActions } from './js/api.js';
+    import { renderProgress, startPolling } from './js/ui/progress.js';
+    import { renderStatsPanel } from './js/ui/stats-panel.js';
+    import { renderCategoryTabs } from './js/ui/category-tabs.js';
+    import { renderSuggestionList } from './js/ui/suggestion-list.js';
+    import { renderActionBar, showExecuteConfirmation } from './js/ui/action-queue.js';
+    import { showToast } from './js/ui/toast.js';
+    import { getSiteNameFromUrl } from './js/ui/url-input.js';
+    import {
+      getState, setState, onStateChange, getCategoryCounts,
+      getFilteredSuggestions, getApprovedCount, markApproved,
+      markRejected, getApprovedBreakdown, getApprovedSuggestionIds,
+    } from './js/app.js';
+
+    // DOM elements
+    const headerCenter = document.getElementById('headerCenter');
+    const headerRight = document.getElementById('headerRight');
+    const progressSection = document.getElementById('progressSection');
+    const progressContainer = document.getElementById('progressContainer');
+    const statsSection = document.getElementById('statsSection');
+    const statsContainer = document.getElementById('statsContainer');
+    const divider = document.getElementById('divider');
+    const tabsSection = document.getElementById('tabsSection');
+    const tabsContainer = document.getElementById('tabsContainer');
+    const listSection = document.getElementById('listSection');
+    const listContainer = document.getElementById('listContainer');
+    const actionBar = document.getElementById('actionBar');
+    const scanLine = document.getElementById('scanLine');
+
+    // Get params from URL
+    const params = new URLSearchParams(window.location.search);
+    const scanId = params.get('scan_id');
+    const sharepointUrl = params.get('url');
+
+    if (!scanId && !sharepointUrl) {
+      window.location.href = 'index.html';
+    }
+
+    // ─── Auth Header ───
+    function renderHeaderAuth(user) {
+      if (user) {
+        const display = getUserDisplay();
+        headerRight.innerHTML = `
+          <div class="header__user">
+            <span style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--accent-archive);color:var(--bg-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:var(--weight-bold);font-size:var(--text-xs);">${display.initials}</span>
+            <span>${display.name}</span>
+          </div>
+          <button class="btn btn--ghost btn--sm" id="signOutBtn">Sign Out</button>
+        `;
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
+          await signOut();
+          window.location.href = 'index.html';
+        });
+      }
+    }
+
+    // ─── Main Flow ───
+    async function init() {
+      const user = await initAuth();
+      onAuthChange(renderHeaderAuth);
+
+      if (!isSignedIn()) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      if (sharepointUrl && !scanId) {
+        // Start a new crawl
+        await startNewCrawl(sharepointUrl);
+      } else if (scanId) {
+        // Resume an existing scan
+        await resumeScan(scanId);
+      }
+    }
+
+    async function startNewCrawl(url) {
+      headerCenter.textContent = getSiteNameFromUrl(url);
+      progressSection.style.display = 'block';
+      scanLine.style.display = 'block';
+
+      try {
+        showToast('Starting crawl...', 'info');
+        const { scan_id } = await startCrawl(url);
+
+        // Update URL without reload
+        window.history.replaceState({}, '', `dashboard.html?scan_id=${scan_id}`);
+        setState({ scanId: scan_id });
+
+        monitorScan(scan_id);
+      } catch (err) {
+        showToast(err.message, 'error');
+        renderProgress(progressContainer, { status: 'error', crawl_progress: 0, total_files: 0, total_folders: 0, total_size_bytes: 0, error_message: err.message });
+      }
+    }
+
+    async function resumeScan(id) {
+      setState({ scanId: id });
+
+      try {
+        const scan = await getScan(id);
+        setState({ scan });
+        headerCenter.textContent = getSiteNameFromUrl(scan.sharepoint_url);
+
+        if (scan.status === 'complete') {
+          await loadResults(id);
+        } else if (scan.status === 'error') {
+          progressSection.style.display = 'block';
+          renderProgress(progressContainer, {
+            status: 'error',
+            crawl_progress: scan.crawl_progress,
+            total_files: scan.total_files,
+            total_folders: scan.total_folders,
+            total_size_bytes: scan.total_size_bytes,
+            error_message: scan.error_message,
+          });
+        } else {
+          progressSection.style.display = 'block';
+          scanLine.style.display = 'block';
+          monitorScan(id);
+        }
+      } catch (err) {
+        showToast('Failed to load scan: ' + err.message, 'error');
+      }
+    }
+
+    function monitorScan(id) {
+      startPolling(id, progressContainer, {
+        onStatusChange(status) {
+          // When crawl is done, auto-trigger analysis
+          if (status.status === 'crawled') {
+            triggerAnalysis(id);
+          }
+        },
+        onComplete() {
+          scanLine.style.display = 'none';
+          showToast('Analysis complete!', 'success');
+          loadResults(id);
+        },
+        onError(message) {
+          scanLine.style.display = 'none';
+          showToast('Scan failed: ' + message, 'error');
+        },
+      });
+    }
+
+    async function triggerAnalysis(id) {
+      try {
+        await startAnalysis(id);
+      } catch (err) {
+        // Analysis may already be running if we poll too fast
+        console.warn('Analysis trigger:', err.message);
+      }
+    }
+
+    async function loadResults(id) {
+      progressSection.style.display = 'none';
+      scanLine.style.display = 'none';
+
+      try {
+        // Load suggestions and file stats in parallel
+        const [suggestions, fileStats] = await Promise.all([
+          getSuggestions(id),
+          getFileStats(id),
+        ]);
+
+        setState({ suggestions, fileStats });
+
+        // Show all sections
+        statsSection.style.display = 'block';
+        divider.style.display = 'block';
+        tabsSection.style.display = 'block';
+        listSection.style.display = 'block';
+
+        renderDashboard();
+      } catch (err) {
+        showToast('Failed to load results: ' + err.message, 'error');
+      }
+    }
+
+    function renderDashboard() {
+      const state = getState();
+      const counts = getCategoryCounts();
+      const filtered = getFilteredSuggestions();
+      const approvedCount = getApprovedCount();
+
+      // Stats
+      renderStatsPanel(statsContainer, state.fileStats, counts);
+
+      // Tabs
+      renderCategoryTabs(tabsContainer, counts, state.activeCategory, (category) => {
+        setState({ activeCategory: category });
+        renderDashboard();
+      });
+
+      // Suggestion list
+      renderSuggestionList(listContainer, filtered, {
+        onApprove: handleApprove,
+        onReject: handleReject,
+        onApproveAll: handleApproveAll,
+      });
+
+      // Action bar
+      renderActionBar(actionBar, approvedCount, {
+        onExecute: handleExecute,
+      });
+    }
+
+    async function handleApprove(id) {
+      markApproved(id);
+      try {
+        await updateSuggestionDecision(id, 'approved');
+      } catch (err) {
+        showToast('Failed to save decision', 'error');
+      }
+      renderActionBar(actionBar, getApprovedCount(), { onExecute: handleExecute });
+    }
+
+    async function handleReject(id) {
+      markRejected(id);
+      try {
+        await updateSuggestionDecision(id, 'rejected');
+      } catch (err) {
+        showToast('Failed to save decision', 'error');
+      }
+      renderActionBar(actionBar, getApprovedCount(), { onExecute: handleExecute });
+    }
+
+    async function handleApproveAll() {
+      const state = getState();
+      const pending = getFilteredSuggestions().filter(s => s.user_decision === 'pending');
+
+      for (const s of pending) {
+        markApproved(s.id);
+        updateSuggestionDecision(s.id, 'approved').catch(console.error);
+      }
+
+      showToast(`Approved ${pending.length} suggestions`, 'success');
+      renderDashboard();
+    }
+
+    async function handleExecute() {
+      const ids = getApprovedSuggestionIds();
+      const breakdown = getApprovedBreakdown();
+
+      const confirmed = await showExecuteConfirmation(ids.length, breakdown);
+      if (!confirmed) return;
+
+      showToast('Executing actions...', 'info');
+
+      try {
+        const { results } = await executeActions(ids);
+        const succeeded = results.filter(r => r.status === 'success').length;
+        const failed = results.filter(r => r.status === 'failed').length;
+
+        if (failed === 0) {
+          showToast(`All ${succeeded} actions executed successfully!`, 'success');
+        } else {
+          showToast(`${succeeded} succeeded, ${failed} failed`, 'warning');
+        }
+
+        // Reload suggestions to reflect updated state
+        const state = getState();
+        const suggestions = await getSuggestions(state.scanId);
+        setState({ suggestions });
+        renderDashboard();
+
+      } catch (err) {
+        showToast('Execution failed: ' + err.message, 'error');
+      }
+    }
+
+    // Boot
+    init();
+  </script>
+</body>
+</html>
